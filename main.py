@@ -10,38 +10,38 @@ def main_page(page: ft.Page):
     def view_task(task_id, task_text):
         task_field = ft.TextField(value=task_text, expand=True, read_only=True)
 
-    def save_edit(_):
-        main_db.update_task(task_id=task_id, new_task=task_field.value)
-        task_field.read_only = True
-        page.update()
-
-    def enable_edit(_):
-        if task_field.read_only == True:
-            task_field.read_only = False
-        else:
+        def save_edit(_):
+            main_db.update_task(task_id=task_id, new_task=task_field.value)
             task_field.read_only = True
-        page.update()
+            page.update()
 
-    edit_button = ft.IconButton(icon=ft.Icons.EDIT, on_click=enable_edit)
-    save_button = ft.IconButton(icon=ft.Icons.SAVE, on_click=save_edit)
-    
-    delete_button = ft.IconButton(
-        icon=ft.Icons.DELETE, 
-        icon_color=ft.Colors.RED_500,
-        on_click=None  # временно
-    )
+        def enable_edit(_):
+            if task_field.read_only == True:
+                task_field.read_only = False
+            else:
+                task_field.read_only = True
+            page.update()
 
-    row = ft.Row([task_field, edit_button, save_button, delete_button])
+        edit_button = ft.IconButton(icon=ft.Icons.EDIT, on_click=enable_edit)
+        save_button = ft.IconButton(icon=ft.Icons.SAVE, on_click=save_edit)
+        
+        delete_button = ft.IconButton(
+            icon=ft.Icons.DELETE, 
+            icon_color=ft.Colors.RED_500,
+            on_click=None
+        )
 
-    # Теперь row уже существует
-    def delete_task(_):
-        main_db.delete_task(task_id)
-        task_list.controls.remove(row)
-        page.update()
+        row = ft.Row([task_field, edit_button, save_button, delete_button])
 
-    delete_button.on_click = delete_task   # ← привязываем функцию после создания row
+  
+        def delete_task(_):
+            main_db.delete_task(task_id)
+            task_list.controls.remove(row)
+            page.update()
 
-    return row
+        delete_button.on_click = delete_task  
+
+        return row
 
     def add_task_flet(_):
         if task_input.value:
