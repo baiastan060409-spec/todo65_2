@@ -7,13 +7,17 @@ create_tasks_table = """
 
 
 #CREATE
-insert_task = 'INSERT INTO tasks (tasks) VALUES (?)'
+insert_task = 'INSERT INTO tasks (task) VALUES (?)'
 
 #READ
-select_tasks = "SELECT id, task FROM tasks"
+select_tasks = 'SELECT id, task, completed FROM tasks'
+
+select_tasks_completed = '''SELECT id, task,  completed FROM tasks WHERE completed = 1 '''
+select_tasks_uncompleted = '''SELECT id, task,completed FROM tasks WHERE completed = 0 '''
+
 
 #UPDATE
 update_task = 'UPDATE tasks SET task = ? WHERE id = ?'
 
 #DELETE
-delete-task = 'DELETE FROM tasks WHERE id = ?'
+delete_task = 'DELETE FROM tasks WHERE id = ?'
