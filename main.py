@@ -1,100 +1,92 @@
+
 import flet as ft
-from db import main_db
+from config import APP_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, PRIMARY_COLOR
+from db.main_db import init_db
+from db.queries import add_item, get_all_items, get_bought_items, get_not_bought_items, toggle_bought, delete_item, get_bought_count
 
-def main_page(page: ft.Page):
-    page.title = 'ToDo List'
+def main(page: ft.Page):
+    page.title = APP_TITLE
+    page.window.width = WINDOW_WIDTH
+    page.window.height = WINDOW_HEIGHT
+    page.padding = 20
     page.theme_mode = ft.ThemeMode.LIGHT
-    task_list = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True, spacing=20)
-    filter_type = 'all'
+    init_db()
 
+    new_item = ft.TextField(label="Название товара", hint_text="Например: Молоко", expand=True, border_radius=8, on_submit=lambda e: add_click(e))
+    quantity_field = ft.TextField(label="Количество", hint_text="Например: 2", width=150, border_radius=8, value="")
 
-    def load_tasks():
-        task_list.controls.clear()
-        for task_id, task, completed in main_db.get_tasks(filter_type): task_list.controls.append( view_task(task_id=task_id, task_text=task, completed=completed))
+    items_list = ft.ListView(expand=True, spacing=8)
+    counter = ft.Text(size=16, weight=ft.FontWeight.BOLD)
+    current_filter = 0
+
+    def update_list():
+        items_list.controls.clear()
+        if current_filter == 0:
+            items = get_all_items()
+        elif current_filter == 1:
+            items = get_not_bought_items()
+        else:
+            items = get_bought_items()
+
+        for item in items:
+            item_id = item["id"]
+            qty = f" ({item['quantity']})" if item.get('quantity') and item['quantity'].strip() else ""
+            checkbox = ft.Checkbox(label=f"{item['name']}{qty}", value=bool(item['is_bought']), on_change=lambda e, iid=item_id: toggle_item(e, iid))
+            delete_btn = ft.IconButton(icon=ft.Icons.DELETE, icon_color="red400", on_click=lambda e, iid=item_id: delete_item_click(iid))
+            row = ft.Row(controls=[checkbox, delete_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+            items_list.controls.append(row)
+
+        bought = get_bought_count()
+        total = len(get_all_items())
+        counter.value = f"Куплено: {bought} из {total}"
         page.update()
 
+    def toggle_item(e, item_id):
+        toggle_bought(item_id, e.control.value)
+        update_list()
 
-    def view_task(task_id, task_text, completed=None):
-        task_field = ft.TextField(value=task_text, expand=True, read_only=True)
+    def delete_item_click(item_id):
+        delete_item(item_id)
+        update_list()
 
-        checkbox = ft.Checkbox(value=bool(completed), on_change=lambda e: toggle_task(task_id=task_id, is_completed=e.control.value))
+    def add_click(e):
+        if new_item.value and new_item.value.strip():
+            add_item(new_item.value.strip(), quantity_field.value or "")
+            new_item.value = ""
+            quantity_field.value = ""
+            update_list()
 
+    def filter_all(e):
+        nonlocal current_filter
+        current_filter = 0
+        update_list()
 
-        def save_edit(_):
-            main_db.update_task(task_id=task_id, new_task=task_field.value)
-            task_field.read_only = True
-            page.update()
+    def filter_not_bought(e):
+        nonlocal current_filter
+        current_filter = 1
+        update_list()
 
+    def filter_bought(e):
+        nonlocal current_filter
+        current_filter = 2
+        update_list()
 
-        def enable_edit(_):
-            if task_field.read_only == True:
-                task_field.read_only = False
-            else:
-                task_field.read_only = True
-            page.update()
+    filter_row = ft.Row(controls=[
+        ft.ElevatedButton("Все", on_click=filter_all),
+        ft.ElevatedButton("Не куплено", on_click=filter_not_bought),
+        ft.ElevatedButton("Куплено", on_click=filter_bought),
+    ], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
 
-        edit_button = ft.IconButton(  icon=ft.Icons.EDIT, on_click=enable_edit)
-        save_button = ft.IconButton(  icon=ft.Icons.SAVE,  on_click=save_edit)
-        delete_button = ft.IconButton( icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_500, on_click=None)
-        row = ft.Row([ task_field, edit_button, save_button, delete_button, checkbox])
+    add_button = ft.FloatingActionButton(icon=ft.Icons.ADD, bgcolor=PRIMARY_COLOR, on_click=add_click)
 
+    page.add(
+        ft.Text(APP_TITLE, size=28, weight=ft.FontWeight.BOLD),
+        ft.Row([new_item, quantity_field]),
+        filter_row,
+        items_list,
+        counter
+    )
+    page.floating_action_button = add_button
+    update_list()
 
-        def delete_task(_):
-            main_db.delete_task(task_id)
-            task_list.controls.remove(row)
-            page.update()
-
-        delete_button.on_click = delete_task
-        return row
-
-
-    def toggle_task(task_id, is_completed):
-        main_db.update_task(
-            task_id=task_id,
-            completed=int(is_completed))
-        page.update()
-
-
-    def add_task_flet(_):
-        if task_input.value:
-            task_text = task_input.value.strip()
-            task_id = main_db.add_task(task=task_text)
-            task_input.value = None
-            task_list.controls.append(
-                view_task(task_id=task_id, task_text=task_text))
-            page.update()
-
-
-    def clear_completed_tasks(_):
-        main_db.clear_completed_tasks()
-        load_tasks()
-        page.update()
-
-    task_input = ft.TextField(
-        label='Введите задачу',
-        on_submit=add_task_flet)
-
-
-    def set_filter(filter_value):
-        nonlocal filter_type
-        filter_type = filter_value
-        load_tasks()
-        page.update()
-
-    filter_buttons = ft.Row([
-        ft.ElevatedButton(  'Все задачи', on_click=lambda e: set_filter('all')),
-        ft.ElevatedButton(  'В работе', on_click=lambda e: set_filter('uncompleted')),
-        ft.ElevatedButton( 'Готово',on_click=lambda e: set_filter('completed'))
-    ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
-
-    clear_button = ft.ElevatedButton(
-        'Очистить выполненные',
-        bgcolor=ft.Colors.RED_500,
-        color=ft.Colors.WHITE,
-        on_click=clear_completed_tasks)
-    page.add(task_input,  filter_buttons, clear_button,task_list)
-    load_tasks()
-
-if __name__ == '__main__':
-    main_db.init_db()
-    ft.app(target=main_page)
+ft.app(target=main)

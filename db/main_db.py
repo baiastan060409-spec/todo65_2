@@ -1,63 +1,24 @@
 import sqlite3
-from config import path_db
-from db import queries
+from config import DB_PATH
 
 
-def init_db():
-    conn = sqlite3.connect(path_db)
+def get_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(queries.create_tasks_table)
-    print('БД подключена')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            quantity TEXT,
+            is_bought INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     conn.commit()
     conn.close()
-
-
-def add_task(task):
-    conn = sqlite3.connect(path_db)
-    cursor = conn.cursor()
-    cursor.execute(queries.insert_task, (task,))
-    conn.commit()
-    task_id = cursor.lastrowid
-    conn.close()
-    return task_id
-
-
-def delete_task(task_id):
-    conn = sqlite3.connect(path_db)
-    cursor = conn.cursor()
-    cursor.execute(queries.delete_task, (task_id,))
-    conn.commit()
-    conn.close()
-
-
-def clear_completed_tasks():
-    conn = sqlite3.connect(path_db)
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM tasks WHERE completed = 1')
-    conn.commit()
-    conn.close()
-
-
-def update_task(task_id, new_task=None, completed=None):
-    conn = sqlite3.connect(path_db)
-    cursor = conn.cursor()
-    if new_task is not None:
-        cursor.execute(queries.update_task,(new_task, task_id))
-    elif completed is not None:
-        cursor.execute('UPDATE tasks SET completed = ? WHERE id = ?',(completed, task_id))
-    conn.commit()
-    conn.close()
-
-
-def get_tasks(filter_type=None):
-    conn = sqlite3.connect(path_db)
-    cursor = conn.cursor()
-    if filter_type == 'all':
-        cursor.execute(queries.select_tasks)
-    elif filter_type == 'completed':
-        cursor.execute(queries.select_tasks_completed)
-    elif filter_type == 'uncompleted':
-        cursor.execute(queries.select_tasks_uncompleted)
-    tasks = cursor.fetchall()
-    conn.close()
-    return tasks
